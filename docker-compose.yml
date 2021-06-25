@@ -1,0 +1,127 @@
+version: '3.1'
+
+services:
+
+    consul:
+        container_name: consul
+        image: gliderlabs/consul-server:latest
+        command: -server -advertise 174.17.0.2 -bootstrap-expect=1
+        networks:
+            app_net:
+                ipv4_address: 174.17.0.2
+
+    mongo:
+        container_name: mongodb
+        image: mongo:latest
+        restart: always
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: root
+            MONGO_INITDB_ROOT_PASSWORD: password
+            MONGO_INITDB_ROOT_DATABASE: root-db
+        logging: 
+            driver: none
+        networks:
+            app_net:
+                ipv4_address: 174.17.0.3
+        volumes:
+            - ./docker-entrypoint-initdb.d/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+    login:
+        container_name: login
+        image: login_service:latest
+        restart: always
+        environment:
+            CONSUL_IP: 174.17.0.2
+            CONSUL_PORT: 8500
+            TOKENS_DB_LOGIN: tokens_admin
+            TOKENS_DB_PASS: password
+            TOKENS_DB_IP: 174.17.0.3
+            HOST_IP: 192.168.32.137
+            RUN_ENV: TEST # TEST or DEPLOY
+        depends_on: 
+            - consul
+            - mongo
+        networks:
+            app_net:
+                ipv4_address: 174.17.0.4
+
+    register:
+        container_name: register
+        image: register_service:latest
+        restart: always
+        environment:
+            CONSUL_IP: 174.17.0.2
+            CONSUL_PORT: 8500
+            USERS_DB_LOGIN: users_admin
+            USERS_DB_PASS: password
+            USERS_DB_IP: 174.17.0.3
+            HOST_IP: 192.168.32.137
+            RUN_ENV: TEST # TEST or DEPLOY
+        depends_on: 
+            - consul
+            - mongo
+        networks:
+            app_net:
+                ipv4_address: 174.17.0.5
+
+    cert:
+        container_name: cert
+        image: cert_service:latest
+        secrets:
+            - root_ca_crt
+            - root_ca_key
+        restart: always
+        environment:
+            CONSUL_IP: 174.17.0.2
+            CONSUL_PORT: 8500
+            CERTS_DB_LOGIN: certs_admin
+            CERTS_DB_PASS: password
+            CERTS_DB_IP: 174.17.0.3
+            HOST_IP: 192.168.32.137
+            RUN_ENV: TEST # TEST or DEPLOY
+        depends_on: 
+            - consul
+            - mongo
+        networks:
+            app_net:
+                ipv4_address: 174.17.0.6
+    
+    nginx:
+        container_name: nginx
+        image: oqs_nginx:latest
+        secrets:
+            - nginx_ca_crt
+            - nginx_server_crt
+            - nginx_server_key
+        restart: always
+        depends_on: 
+            - login
+            - register
+            - cert
+        ports:
+            - 5000:443
+        networks:
+            app_net:
+                ipv4_address: 174.17.0.7
+
+networks:
+    app_net:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 174.17.0.0/16
+                  
+
+secrets:
+    root_ca_key:
+        file: root_ca.key
+    root_ca_crt:
+        file: root_ca.crt
+    nginx_ca_crt:
+        file: nginx_ca.crt
+    nginx_server_crt:
+        file: nginx_server.crt
+    nginx_server_key:
+        file: nginx_server.key
+
+

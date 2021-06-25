@@ -1,0 +1,9 @@
+{% from "_formhelpers.html" import render_field %}
+<form action=login method=post>
+  <dl>
+    <input type="hidden" name="next" value="{{ request.args.get('next', '') }}" />
+    {{ render_field(form.email) }}
+    {{ render_field(form.password) }}
+  </dl>
+  <p><input type=submit value=Login>
+</form>

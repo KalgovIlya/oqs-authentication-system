@@ -1,0 +1,9 @@
+{% from "_formhelpers.html" import render_field %}
+<form method=post>
+  <dl>
+    {{ render_field(form.first_name) }}
+    {{ render_field(form.last_name) }}
+  </dl>
+  {{is_active|safe}}
+  <p><input type=submit value=Update>
+</form>
